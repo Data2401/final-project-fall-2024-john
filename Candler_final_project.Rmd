@@ -1,0 +1,160 @@
+---
+title: "Final Project: WORK IN PROGRESS"
+author: "John Candler"
+date: "DATA 2401"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+library(tidyverse)
+#data <- read.csv("FY2023_All_Contracts_Full_20241107_1.csv", nrows=10, header=T, quote="\"", sep=",")
+#glimpse(data)
+#con <- file('col_names.txt')
+#data %>% colnames() %>% write_lines(con)
+#close(con)
+```
+
+```{r, message = F}
+#install.packages("dbplyr") ## run once per machine
+library(DBI) ## in every relevant script
+library(dplyr)  ## in every relevant script
+library(dbplyr)  ## in every relevant script
+library(ggplot2)
+
+#### for a SQLite database 
+#install.packages("RSQLite") ## once per machine
+library(RSQLite) ## in every relevant script
+
+### for a postgres database
+#install.packages("RPostgreSQL")  ## once per machine
+#library(RPostgreSQL) ## in every relevant script
+
+### IOT convert to currancy
+#install.packages('devtools')
+#devtools::install_github("renkun-ken/formattable")
+library(formattable)
+```
+
+```{r}
+
+# Create db connection
+# db_connection <- dbcanConnect(SQLite(), dbname= 'final_project.db')
+db_connection <- dbConnect(SQLite(), dbname= 'final_project.db')
+dbListTables(db_connection)
+```
+```{r}
+### ONLY TO DISCONNECT
+#dbDisconnect(db_connection)
+```
+
+```{r}
+
+table_fy23 <- tbl(db_connection, 'FY2023_All_Contracts_Full_20241107')
+glimpse(table_fy23)
+```
+
+#```{r}
+
+#FY23_total_dollars_obligated <- table_1 %>%
+# summarise(total=sum(total_dollars_obligated, na.rm = TRUE)) %>%
+  #as.numeric() %>%
+#  currency(FY23_total_dollars_obligated$total)
+
+# options(scipen = 999)
+
+FY23_total_dollars_obligated <- table_fy23 %>%
+  pull(var=federal_action_obligation) %>%
+  sum() %>%
+  currency() %>%
+  print()
+
+FY23_total_ob <- table_fy23 %>%
+  #filter(award_type == 'DELIVERY ORDER'|'PURCHASE ORDER'|'BPA CALL'|'DEFINITIVE CONTRACT') %>%
+  pull(var=federal_action_obligation) %>%
+  sum()
+
+sm_biz_award_total <- table_fy23 %>%
+  filter(contracting_officers_determination_of_business_size == 'SMALL BUSINESS') %>%
+  pull(var=federal_action_obligation) %>%
+  sum()
+
+sdb_award_total <- table_fy23 %>%
+  filter(small_disadvantaged_business=='t'| dot_certified_disadvantage=='t'| self_certified_small_disadvantaged_business=='t') %>%
+  pull(var=federal_action_obligation) %>%
+  sum()
+
+sdvob_award_total <- table_fy23 %>%
+  filter(service_disabled_veteran_owned_business=='t') %>%
+  pull(var=federal_action_obligation) %>%
+  sum()
+
+wosb_award_total <- table_fy23 %>%
+  filter(women_owned_small_business == 't'|economically_disadvantaged_women_owned_small_business=='t') %>%
+  pull(var=federal_action_obligation) %>%
+  sum()
+
+hub_award_total <- table_fy23 %>%
+  filter(economically_disadvantaged_women_owned_small_business == 't') %>%
+  pull(var=federal_action_obligation) %>%
+  sum()
+
+print(sm_biz_award_total/FY23_total_ob)
+
+award_types <-table_fy23 %>%
+  summarise(distinct(award_type)) %>%
+  print(award_types)
+
+fed_ob_by_agency <- table_fy23 %>%
+  group_by(awarding_agency_name) %>%
+  summarise(federal_action_obligation)
+
+collect(fed_ob_by_agency)
+  
+sm_goals_by_agency <- table_fy23 %>%
+  group_by(awarding_agency_name) %>%
+  filter(contracting_officers_determination_of_business_size == 'SMALL BUSINESS') %>%
+  summarise(federal_action_obligation)
+?summarise
+sm_goals_by_agency
+
+table_fy23 %>% summarise(distinct(awarding_agency_name))
+
+table_fy23 %>% filter(contracting_officers_determination_of_business_size == 'SMALL BUSINESS') %>%
+  #group_by(parent_award_agency_name) %>%
+  ggplot() +
+    geom_col(mapping = aes(x = currency(federal_action_obligation), y = parent_award_agency_name))
+  
+  geom_bar(aes(currency(federal_action_obligation), parent_award_agency_name))
+
+table_fy23 %>%
+  ggplot() +
+    geom_col(
+      mapping = aes(x = contracting_officers_determination_of_business_size, y = federal_action_obligation)
+      ) +
+  facet_wrap(~parent_award_agency_name)
+```{r}
+table_fy23 %>% ggplot() +
+  geom_col(
+    mapping = aes(contracting_officers_determination_of_business_size, federal_action_obligation)
+  )
+```
+
+table_fy23 %>% summarise(distinct(recipient_zip_4_code))
+  
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+dbDisconnect(db_connection)
+```
